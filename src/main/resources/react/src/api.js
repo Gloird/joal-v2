@@ -38,9 +38,9 @@ export function connectWebSocket({ onSpeed, onTorrent, onInit, onGlobal, onConfi
   onGlobalUpdate = onGlobal;
   onConfigUpdate = onConfig;
 
-  console.log(import.meta.env.VITE_WS_PATH, import.meta.env.VITE_WS_HOST);
-  const WS_PATH = import.meta.env.VITE_WS_PATH || window.location.pathname;
-  const WS_HOST = import.meta.env.VITE_WS_HOST || window.location.host;
+  //console.log(import.meta.env.VITE_WS_PATH, import.meta.env.VITE_WS_HOST);
+  const WS_PATH = window.location.pathname;
+  const WS_HOST = window.location.host;
   const WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + WS_HOST +'/ws';
 
     // Récupère le token depuis la config ou l'environnement
