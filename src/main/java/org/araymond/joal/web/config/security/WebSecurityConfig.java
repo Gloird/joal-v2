@@ -41,8 +41,8 @@ public class WebSecurityConfig {
                 .formLogin().disable()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS).and()
                 .authorizeRequests()
-                .antMatchers("/" + this.pathPrefix).permitAll()
-                .antMatchers("/" + this.pathPrefix + "/ui/**").permitAll()
+                .antMatchers("/").permitAll()
+                .antMatchers("/ws").permitAll()
                 .anyRequest().denyAll()
                 .and().build();
     }

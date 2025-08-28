@@ -29,7 +29,7 @@ public class EndpointObfuscatorConfiguration {
         final ApplicationContext applicationContext = new AnnotationConfigWebApplicationContext();
         dispatcherServlet.setApplicationContext(applicationContext);
 
-        final ServletRegistrationBean servletRegistrationBean = new ServletRegistrationBean(dispatcherServlet, "/" + this.pathPrefix + "/*");
+        final ServletRegistrationBean servletRegistrationBean = new ServletRegistrationBean(dispatcherServlet, "/*");
         servletRegistrationBean.setName("joal");
         return servletRegistrationBean;
     }

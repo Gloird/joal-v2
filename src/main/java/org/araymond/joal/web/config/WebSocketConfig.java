@@ -48,7 +48,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     // Handshake endpoint
     @Override
     public void registerStompEndpoints(final StompEndpointRegistry registry) {
-        registry.addEndpoint(this.webSocketPathPrefix)
+        registry.addEndpoint("/ws")
                 .setAllowedOrigins("*");
     }
 
