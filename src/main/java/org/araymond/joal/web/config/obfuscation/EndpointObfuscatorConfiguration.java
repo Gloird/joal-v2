@@ -1,7 +1,6 @@
 package org.araymond.joal.web.config.obfuscation;
 
 import org.araymond.joal.web.annotations.ConditionalOnWebUi;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -16,20 +15,17 @@ import org.springframework.web.servlet.DispatcherServlet;
 @Configuration
 public class EndpointObfuscatorConfiguration {
 
-    private final String pathPrefix;
-
-    public EndpointObfuscatorConfiguration(@Value("${joal.ui.path.prefix}") final String pathPrefix) {
-        this.pathPrefix = pathPrefix;
+    public EndpointObfuscatorConfiguration() {
     }
 
     @Bean
-    public ServletRegistrationBean obfuscatedDispatcherServlet() {
+    public ServletRegistrationBean<DispatcherServlet> obfuscatedDispatcherServlet() {
         final DispatcherServlet dispatcherServlet = new DispatcherServlet();
 
         final ApplicationContext applicationContext = new AnnotationConfigWebApplicationContext();
         dispatcherServlet.setApplicationContext(applicationContext);
 
-        final ServletRegistrationBean servletRegistrationBean = new ServletRegistrationBean(dispatcherServlet, "/*");
+        final ServletRegistrationBean<DispatcherServlet> servletRegistrationBean = new ServletRegistrationBean<>(dispatcherServlet, "/*");
         servletRegistrationBean.setName("joal");
         return servletRegistrationBean;
     }

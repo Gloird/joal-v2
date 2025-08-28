@@ -10,20 +10,21 @@ import org.springframework.web.servlet.config.annotation.*;
 @Configuration
 public class WebMvcConfiguration implements WebMvcConfigurer {
     private final String[] RESOURCE_LOCATIONS = new String[]{"classpath:/public/"};
+    private final String[] RESOURCE_LOCATIONS2 = new String[]{"classpath:/public/assets/"};
 
     @Override
     public void addResourceHandlers(final ResourceHandlerRegistry registry) {
-        if (!registry.hasMappingForPattern("/ui/**")) {
-            registry.addResourceHandler("/ui/**")
+            registry.addResourceHandler("/**")
                     .addResourceLocations(RESOURCE_LOCATIONS);
-        }
+            registry.addResourceHandler("/assets/**")
+                    .addResourceLocations(RESOURCE_LOCATIONS2);
     }
 
     @Override
     public void addViewControllers(final ViewControllerRegistry registry) {
         // The webui passes the credentials alongs with ui call, redirect them as well
-        registry.addRedirectViewController("/ui", "ui/").setKeepQueryParams(true);
-        registry.addViewController("/ui/").setViewName("forward:index.html");
+        //registry.addRedirectViewController("/", "/").setKeepQueryParams(true);
+        registry.addViewController("/").setViewName("forward:index.html");
         registry.setOrder(Ordered.HIGHEST_PRECEDENCE);
         //super.addViewControllers(registry);
     }
