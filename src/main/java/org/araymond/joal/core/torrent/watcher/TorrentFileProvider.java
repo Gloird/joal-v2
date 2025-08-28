@@ -26,18 +26,12 @@ import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.toList;
 
 /**
- * With help of a {@link TorrentFileWatcher}, it monitors our filesystem for
- * {@code .torrent} file additions, changes & deletions, and processes these
- * events accordingly.
- * <p/>
- * Note this class itself implements {@link FileAlterationListenerAdaptor} that's
- * registered by our {@link TorrentFileWatcher}. But we expose methods to register
- * JOAL-specific listeners implementing {@link TorrentFileChangeAware} that will
- * be notified of file system changes on specific torrent files.
- * <p/>
- * Created by raymo on 28/01/2017.
+ * Service qui gère la surveillance et la gestion des fichiers .torrent sur le disque.
+ * Permet d'ajouter, supprimer, archiver et notifier les listeners sur les changements.
+ * Optimisation possible : ajouter une gestion des erreurs plus robuste et un watcher multiplateforme.
  */
 @Slf4j
+// Gère la gestion des fichiers .torrent et l'archivage automatique.
 public class TorrentFileProvider extends FileAlterationListenerAdaptor {
 
     private final TorrentFileWatcher watcher;
@@ -45,6 +39,9 @@ public class TorrentFileProvider extends FileAlterationListenerAdaptor {
     private final Set<TorrentFileChangeAware> torrentFileChangeListeners;
     private final Path archiveFolder;
 
+    /**
+     * Initialise le provider avec le chemin des dossiers torrents et archive.
+     */
     public TorrentFileProvider(final SeedManager.JoalFoldersPath joalFoldersPath) throws FileNotFoundException {
         Path torrentsDir = joalFoldersPath.getTorrentsDirPath();
         if (!isDirectory(torrentsDir)) {
@@ -58,12 +55,18 @@ public class TorrentFileProvider extends FileAlterationListenerAdaptor {
         this.torrentFileChangeListeners = new HashSet<>();
     }
 
+    /**
+     * Démarre la surveillance des fichiers torrents.
+     */
     public void start() {
         this.init();
         this.watcher.start();
     }
 
     @VisibleForTesting
+    /**
+     * Initialise le dossier d'archive si besoin.
+     */
     void init() {
         if (!isDirectory(archiveFolder)) {
             if (Files.exists(archiveFolder)) {
@@ -82,11 +85,17 @@ public class TorrentFileProvider extends FileAlterationListenerAdaptor {
         }
     }
 
+    /**
+     * Arrête la surveillance et nettoie la map des torrents.
+     */
     public void stop() {
         this.watcher.stop();
         this.torrentFiles.clear();
     }
 
+    /**
+     * Appelé lors de la suppression d'un fichier .torrent sur le disque.
+     */
     @Override
     public void onFileDelete(final File file) {
         ofNullable(this.torrentFiles.remove(file))
@@ -96,6 +105,9 @@ public class TorrentFileProvider extends FileAlterationListenerAdaptor {
                 });
     }
 
+    /**
+     * Appelé lors de l'ajout d'un fichier .torrent sur le disque.
+     */
     @Override
     public void onFileCreate(final File file) {
         log.info("Torrent file addition detected, hot creating file [{}]", file.getAbsolutePath());
@@ -113,6 +125,9 @@ public class TorrentFileProvider extends FileAlterationListenerAdaptor {
         }
     }
 
+    /**
+     * Appelé lors de la modification d'un fichier .torrent sur le disque.
+     */
     @Override
     public void onFileChange(final File file) {
         log.info("Torrent file change detected, hot reloading file [{}]", file.getAbsolutePath());
@@ -120,14 +135,23 @@ public class TorrentFileProvider extends FileAlterationListenerAdaptor {
         this.onFileCreate(file);
     }
 
+    /**
+     * Enregistre un listener pour être notifié des changements de fichiers torrents.
+     */
     public void registerListener(final TorrentFileChangeAware listener) {
         this.torrentFileChangeListeners.add(listener);
     }
 
+    /**
+     * Désenregistre un listener.
+     */
     public void unRegisterListener(final TorrentFileChangeAware listener) {
         this.torrentFileChangeListeners.remove(listener);
     }
 
+    /**
+     * Retourne un torrent qui n'est pas dans la liste unwantedTorrents.
+     */
     public MockedTorrent getTorrentNotIn(final Collection<InfoHash> unwantedTorrents) throws NoMoreTorrentsFileAvailableException {
         Preconditions.checkNotNull(unwantedTorrents, "unwantedTorrents cannot be null");
 
@@ -141,6 +165,9 @@ public class TorrentFileProvider extends FileAlterationListenerAdaptor {
                 .orElseThrow(() -> new NoMoreTorrentsFileAvailableException("No more torrent files available"));
     }
 
+    /**
+     * Déplace un fichier .torrent dans le dossier d'archive.
+     */
     void moveToArchiveFolder(final File torrentFile) {
         if (torrentFile == null || !torrentFile.exists()) {
             return;
@@ -156,6 +183,9 @@ public class TorrentFileProvider extends FileAlterationListenerAdaptor {
         }
     }
 
+    /**
+     * Déplace le fichier .torrent correspondant à l'infoHash dans le dossier d'archive.
+     */
     public void moveToArchiveFolder(final InfoHash infoHash) {
         this.torrentFiles.entrySet().stream()
                 .filter(entry -> entry.getValue().getTorrentInfoHash().equals(infoHash))
@@ -165,11 +195,35 @@ public class TorrentFileProvider extends FileAlterationListenerAdaptor {
                         () -> log.warn("Cannot move torrent [{}] to archive folder. Torrent file seems not to be registered in TorrentFileProvider", infoHash));
     }
 
+    /**
+     * Retourne le nombre de torrents présents.
+     */
     public int getTorrentCount() {
         return this.torrentFiles.size();
     }
 
+    /**
+     * Retourne la liste des torrents présents.
+     */
     public List<MockedTorrent> getTorrentFiles() {
         return new ArrayList<>(this.torrentFiles.values());
+    }
+
+    /**
+     * Retourne tous les torrents qui ne sont pas dans unwantedTorrents.
+     */
+    public Iterable<MockedTorrent> getAllTorrentsNotIn(Set<InfoHash> unwantedTorrents) {
+
+        Preconditions.checkNotNull(unwantedTorrents, "unwantedTorrents cannot be null");
+
+        return this.torrentFiles.values().stream()
+                .filter(torrent -> !unwantedTorrents.contains(torrent.getTorrentInfoHash()))
+                .collect(Collectors.collectingAndThen(toList(), collected -> {
+                    Collections.shuffle(collected);
+                    return collected.stream();
+                }))
+                .collect(Collectors.toList());
+                
+
     }
 }

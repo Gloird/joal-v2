@@ -10,7 +10,6 @@ import org.apache.commons.io.monitor.FileAlterationMonitor;
 import org.apache.commons.io.monitor.FileAlterationObserver;
 
 import java.io.File;
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static java.nio.file.Files.isDirectory;

@@ -1,0 +1,23 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "type": "java",
+            "name": "Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        },
+        {
+            "type": "java",
+            "name": "JackOfAllTradesApplication",
+            "request": "launch",
+            "mainClass": "org.araymond.joal.JackOfAllTradesApplication",
+            "projectName": "jack-of-all-trades",
+            "args": "--joal-conf=resources  --spring.main.web-environment=true --server.port=80 --joal.ui.path.prefix=SECRET_OBFUSCATION_PATH  --joal.ui.secret-token=SECRET_TOKEN"
+        }
+    ]
+}

@@ -1,10 +1,12 @@
 package org.araymond.joal.web.services;
 
+import org.araymond.joal.core.SeedManager;
 import org.araymond.joal.web.messages.outgoing.StompMessage;
 import org.araymond.joal.web.messages.outgoing.StompMessageTypes;
 import org.araymond.joal.web.messages.outgoing.impl.global.state.GlobalSeedStoppedPayload;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -16,7 +18,7 @@ public class JoalMessageSendingTemplateTest {
     @Test
     public void shouldWrapMessageAndSend() {
         final SimpMessageSendingOperations sendingOperations = mock(SimpMessageSendingOperations.class);
-        final JoalMessageSendingTemplate joalMessageSendingTemplate = new JoalMessageSendingTemplate(sendingOperations);
+        final JoalMessageSendingTemplate joalMessageSendingTemplate = new JoalMessageSendingTemplate(sendingOperations,Mockito.mock(SeedManager.class));
 
         final GlobalSeedStoppedPayload payload = new GlobalSeedStoppedPayload();
         joalMessageSendingTemplate.convertAndSend("/test", payload);

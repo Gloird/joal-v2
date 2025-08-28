@@ -13,10 +13,21 @@ public class TorrentFileAddedPayload implements MessagePayload {
     private final InfoHash infoHash;
     private final String name;
     private final Long size;
+    private final Long antiHnRElapsedMs;
 
-    public TorrentFileAddedPayload(final TorrentFileAddedEvent event) {
+    public TorrentFileAddedPayload(final TorrentFileAddedEvent event, long antiHnRElapsedMs) {
         this.infoHash = event.getTorrent().getTorrentInfoHash();
         this.name = event.getTorrent().getName();
         this.size = event.getTorrent().getSize();
+        this.antiHnRElapsedMs = antiHnRElapsedMs;
+    }
+
+    // Ancien constructeur conservé pour compatibilité
+    public TorrentFileAddedPayload(final TorrentFileAddedEvent event) {
+        this(event, 0L);
+    }
+
+    public Long getAntiHnRElapsedMs() {
+        return antiHnRElapsedMs;
     }
 }

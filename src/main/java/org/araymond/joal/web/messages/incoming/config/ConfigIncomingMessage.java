@@ -19,6 +19,8 @@ public class ConfigIncomingMessage {
     private final String client;
     private final boolean keepTorrentWithZeroLeechers;
     private final Float uploadRatioTarget;
+    private final Long maxNonSeedingTimeMs;
+    private final Long requiredSeedingTimeMs;
 
     @JsonCreator
     ConfigIncomingMessage(
@@ -27,7 +29,9 @@ public class ConfigIncomingMessage {
             @JsonProperty(value = "simultaneousSeed", required = true) final Integer simultaneousSeed,
             @JsonProperty(value = "client", required = true) final String client,
             @JsonProperty(value = "keepTorrentWithZeroLeechers", required = true) final boolean keepTorrentWithZeroLeechers,
-            @JsonProperty(value = "uploadRatioTarget", required = false) final Float uploadRatioTarget
+            @JsonProperty(value = "uploadRatioTarget", required = false) final Float uploadRatioTarget,
+            @JsonProperty(value = "maxNonSeedingTimeMs", required = true) final Long maxNonSeedingTimeMs,
+            @JsonProperty(value = "requiredSeedingTimeMs", required = false) final Long requiredSeedingTimeMs
     ) {
         this.minUploadRate = minUploadRate;
         this.maxUploadRate = maxUploadRate;
@@ -35,9 +39,11 @@ public class ConfigIncomingMessage {
         this.client = client;
         this.keepTorrentWithZeroLeechers = keepTorrentWithZeroLeechers;
         this.uploadRatioTarget = uploadRatioTarget == null ? -1.0f : uploadRatioTarget;
+        this.maxNonSeedingTimeMs = maxNonSeedingTimeMs;
+        this.requiredSeedingTimeMs = requiredSeedingTimeMs;
     }
 
     public AppConfiguration toAppConfiguration() throws AppConfigurationIntegrityException {
-        return new AppConfiguration(this.minUploadRate, this.maxUploadRate, this.simultaneousSeed, this.client, keepTorrentWithZeroLeechers, this.uploadRatioTarget);
+        return new AppConfiguration(this.minUploadRate, this.maxUploadRate, this.simultaneousSeed, this.client, keepTorrentWithZeroLeechers, this.uploadRatioTarget, maxNonSeedingTimeMs, requiredSeedingTimeMs);
     }
 }

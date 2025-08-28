@@ -17,11 +17,12 @@ import static java.lang.String.format;
 import static java.nio.file.Files.isRegularFile;
 
 /**
- * Handles the serialization & deserialization of our main app config file.
- * <p/>
- * Created by raymo on 18/04/2017.
+ * Service qui gère la lecture et l'écriture du fichier de configuration principal (config.json).
+ * Permet de charger, sauvegarder et publier la configuration courante.
+ * Optimisation possible : valider la config avant sauvegarde et permettre le hot reload.
  */
 @Slf4j
+// Fournisseur de configuration pour l'application JOAL.
 public class JoalConfigProvider implements Provider<AppConfiguration> {
     private static final String CONF_FILE_NAME = "config.json";
 
@@ -30,6 +31,9 @@ public class JoalConfigProvider implements Provider<AppConfiguration> {
     private AppConfiguration config;
     private final ApplicationEventPublisher appEventPublisher;
 
+    /**
+     * Initialise le provider avec le chemin du fichier config et l'ObjectMapper JSON.
+     */
     public JoalConfigProvider(final ObjectMapper objectMapper, final SeedManager.JoalFoldersPath joalFoldersPath,
                               final ApplicationEventPublisher appEventPublisher) throws FileNotFoundException {
         this.objectMapper = objectMapper;
@@ -43,11 +47,17 @@ public class JoalConfigProvider implements Provider<AppConfiguration> {
         log.debug("App configuration file will be searched for in [{}]", joalConfFile.toAbsolutePath());
     }
 
+    /**
+     * Charge la configuration depuis le fichier et la publie en event.
+     */
     public AppConfiguration init() {
         this.config = this.loadConfiguration();
         return this.config;
     }
 
+    /**
+     * Retourne la configuration courante (doit être initialisée avant).
+     */
     @Override
     public AppConfiguration get() {
         if (this.config == null) {
@@ -57,6 +67,9 @@ public class JoalConfigProvider implements Provider<AppConfiguration> {
         return this.config;
     }
 
+    /**
+     * Charge la configuration depuis le fichier JSON.
+     */
     @VisibleForTesting
     AppConfiguration loadConfiguration() {
         final AppConfiguration conf;
@@ -75,6 +88,9 @@ public class JoalConfigProvider implements Provider<AppConfiguration> {
     }
 
     // TODO: verify that the new config ends up under this.config after saving new!
+    /**
+     * Sauvegarde une nouvelle configuration dans le fichier config.json et publie un event.
+     */
     public void saveNewConf(final AppConfiguration conf) {
         try {
             objectMapper.writerWithDefaultPrettyPrinter().writeValue(joalConfFile.toFile(), conf);

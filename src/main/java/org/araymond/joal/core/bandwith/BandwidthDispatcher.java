@@ -21,15 +21,14 @@ import static org.apache.commons.io.FileUtils.byteCountToDisplaySize;
 import static org.apache.commons.lang3.ObjectUtils.getIfNull;
 
 /**
- * This class has 2 main functions:
- * <ul>
- *     <li>listens for invocations from {@link BandwidthDispatcherNotifier} in order to register new torrents
- *     and update speeds based on the information received from tracker announce responses;</li>
- *     <li>periodically recomputes per-torrent speeds, and updates the tally in corresponding {@link TorrentSeedStats}</li>
- * </ul>
+ * Service qui gère la répartition de la bande passante simulée entre les torrents.
+ * - Met à jour les vitesses de seed selon les peers et le poids
+ * - Rafraîchit périodiquement les stats d'upload
+ * Optimisation possible : utiliser un scheduler pour plus de précision et batcher les updates.
  */
 @Slf4j
 @RequiredArgsConstructor
+// Gère la logique de répartition de la bande passante et le suivi des stats d'upload.
 public class BandwidthDispatcher implements BandwidthDispatcherFacade, Runnable {
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     private final WeightHolder<InfoHash> weightHolder = new WeightHolder<>(new PeersAwareWeightCalculator());
@@ -43,8 +42,11 @@ public class BandwidthDispatcher implements BandwidthDispatcherFacade, Runnable 
     private final int threadPauseIntervalMs;
     private final RandomSpeedProvider randomSpeedProvider;
 
-    private static final long TWENTY_MINS_MS = MINUTES.toMillis(20);
+    private static final long TWENTY_MINS_MS = MINUTES.toMillis(2);
 
+    /**
+     * Définit le listener à notifier lors d'un changement de vitesse.
+     */
     public void setSpeedListener(final SpeedChangedListener speedListener) {
         this.speedChangedListener = speedListener;
     }
@@ -53,10 +55,16 @@ public class BandwidthDispatcher implements BandwidthDispatcherFacade, Runnable 
      * This method does not benefit from the lock, because the value will never be accessed in a ambiguous way.
      * And even if it happens, we return 0 by default.
      */
+    /**
+     * Retourne les stats d'upload pour un torrent donné.
+     */
     public TorrentSeedStats getSeedStatForTorrent(final InfoHash infoHash) {
         return getIfNull(this.torrentsSeedStats.get(infoHash), TorrentSeedStats::new);
     }
 
+    /**
+     * Retourne la map des vitesses de seed pour tous les torrents.
+     */
     public Map<InfoHash, Speed> getSpeedMap() {
         try {
             this.lock.readLock().lock();
@@ -66,6 +74,9 @@ public class BandwidthDispatcher implements BandwidthDispatcherFacade, Runnable 
         }
     }
 
+    /**
+     * Démarre le thread de répartition de la bande passante.
+     */
     public void start() {
         this.stop = false;
         this.thread = new Thread(this);
@@ -73,6 +84,9 @@ public class BandwidthDispatcher implements BandwidthDispatcherFacade, Runnable 
         this.thread.start();
     }
 
+    /**
+     * Arrête le thread de répartition de la bande passante.
+     */
     public void stop() {
         this.stop = true;
         this.thread.interrupt();
@@ -83,6 +97,9 @@ public class BandwidthDispatcher implements BandwidthDispatcherFacade, Runnable 
     }
 
     @Override
+    /**
+     * Boucle principale du thread : met à jour les stats et rafraîchit la bande passante.
+     */
     public void run() {
         try {
             while (!this.stop) {
@@ -117,6 +134,9 @@ public class BandwidthDispatcher implements BandwidthDispatcherFacade, Runnable 
         }
     }
 
+    /**
+     * Met à jour le nombre de seeders/leechers pour un torrent et recalcule les vitesses.
+     */
     public void updateTorrentPeers(final InfoHash infoHash, final int seeders, final int leechers) {
         log.debug("Updating Peers stats for {}", infoHash.getHumanReadable());
         this.lock.writeLock().lock();
@@ -128,6 +148,9 @@ public class BandwidthDispatcher implements BandwidthDispatcherFacade, Runnable 
         }
     }
 
+    /**
+     * Enregistre un nouveau torrent pour le suivi de la bande passante.
+     */
     public void registerTorrent(final InfoHash infoHash) {
         log.debug("{} has been added to bandwidth dispatcher", infoHash.getHumanReadable());
         this.lock.writeLock().lock();
@@ -139,6 +162,9 @@ public class BandwidthDispatcher implements BandwidthDispatcherFacade, Runnable 
         }
     }
 
+    /**
+     * Désenregistre un torrent du suivi de la bande passante.
+     */
     public void unregisterTorrent(final InfoHash infoHash) {
         log.debug("{} has been removed from bandwidth dispatcher", infoHash.getHumanReadable());
         this.lock.writeLock().lock();
@@ -152,6 +178,9 @@ public class BandwidthDispatcher implements BandwidthDispatcherFacade, Runnable 
         }
     }
 
+    /**
+     * Rafraîchit la bande passante globale simulée.
+     */
     @VisibleForTesting
     void refreshCurrentBandwidth() {
         log.debug("Refreshing global bandwidth");
@@ -169,6 +198,9 @@ public class BandwidthDispatcher implements BandwidthDispatcherFacade, Runnable 
 
     /**
      * Update the values of the {@code speedMap}, introducing change to the current torrent speeds.
+     */
+    /**
+     * Recalcule les vitesses de seed pour tous les torrents selon leur poids.
      */
     @VisibleForTesting
     void recomputeSpeeds() {

@@ -33,7 +33,7 @@ public class JoalConfigProviderTest {
             5,
             "azureus-5.7.5.0.client",
             false,
-            1f
+            1f,1l,2l
     );
 
     @Test
@@ -110,7 +110,7 @@ public class JoalConfigProviderTest {
                     rand.ints(1, 5).findFirst().getAsInt(),
                     RandomStringUtils.random(60),
                     false,
-                    1f
+                    1f,1l,2l
             );
 
             provider.saveNewConf(newConf);

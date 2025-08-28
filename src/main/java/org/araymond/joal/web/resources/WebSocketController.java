@@ -31,6 +31,7 @@ import org.springframework.stereotype.Controller;
 
 import javax.inject.Inject;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -118,10 +119,15 @@ public class WebSocketController {
                 new ConfigHasBeenLoadedPayload(new ConfigHasBeenLoadedEvent(this.seedManager.getCurrentConfig()))
         ));
 
-        // torrent files list
-        this.seedManager.getTorrentFiles().forEach(torrent -> events.addFirst(
-            StompMessage.wrap(new TorrentFileAddedPayload(new TorrentFileAddedEvent(torrent)))
-        ));
+        // torrent files list avec temps anti H&R réel si possible
+        // Associe chaque torrent à son AnnouncerFacade pour récupérer le temps de seed
+        this.seedManager.getTorrentFiles().forEach(torrent -> {
+            String infoHash = torrent.getTorrentInfoHash().getHumanReadable();
+            long antiHnRElapsedMs = this.seedManager.getSeedingTimeMsForTorrent(infoHash);
+            events.addFirst(
+                StompMessage.wrap(new org.araymond.joal.web.messages.outgoing.impl.files.TorrentFileAddedPayload(new org.araymond.joal.core.events.torrent.files.TorrentFileAddedEvent(torrent), antiHnRElapsedMs))
+            );
+        });
 
         // global state
         if (this.seedManager.isSeeding()) {
@@ -133,7 +139,7 @@ public class WebSocketController {
         // speeds
         final Map<InfoHash, Speed> speedMap = this.seedManager.getSpeedMap();
         if (!speedMap.isEmpty()) {
-            events.addFirst(StompMessage.wrap(new SeedingSpeedHasChangedPayload(new SeedingSpeedsHasChangedEvent(speedMap))));
+            events.addFirst(StompMessage.wrap(new SeedingSpeedHasChangedPayload(new SeedingSpeedsHasChangedEvent(speedMap), this.seedManager)));
         }
 
         // Announcers are the most likely to change due to a concurrent access,
