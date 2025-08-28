@@ -72,6 +72,8 @@ jobs:
         fi
 
         # Set output parameters.
+        # Correction : suppression du slash initial si présent
+        TAGS="${TAGS#/}"
         echo ::set-output name=tags::${TAGS}
         echo ::set-output name=docker_image::${DOCKER_IMAGE}
 
