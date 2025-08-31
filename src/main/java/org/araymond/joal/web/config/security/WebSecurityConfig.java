@@ -32,6 +32,7 @@ public class WebSecurityConfig {
         }
 
     return http
+        .csrf().disable()
         .httpBasic().disable()
         .formLogin().disable()
         .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS).and()
@@ -40,6 +41,7 @@ public class WebSecurityConfig {
         .antMatchers("/*").permitAll()
         .antMatchers("/assets/**").permitAll()
         .antMatchers("/ws").permitAll()
+        .antMatchers("/api/client-generator/**").permitAll()
         .anyRequest().denyAll()
         .and().build();
     }

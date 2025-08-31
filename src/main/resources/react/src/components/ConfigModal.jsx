@@ -1,3 +1,4 @@
+import { getQbittorrentVersions, generateQbittorrentClient } from '../api';
 // Composant React pour la gestion et la modification de la configuration JOAL.
 // Affiche une popup (modal) permettant de modifier les paramètres principaux et de les envoyer au backend.
 // Optimisation possible : validation des champs côté frontend et feedback utilisateur plus détaillé.
@@ -18,6 +19,30 @@ import {
  * @param configSaveStatus Statut de la sauvegarde (success, error, saving)
  */
 export default function ConfigModal({ open, onClose, clientWebSocket, clients, config, configSaveStatus }) {
+  // Pour la génération automatique de client qBittorrent
+  const [qbVersions, setQbVersions] = useState([]);
+  const [selectedQbVersion, setSelectedQbVersion] = useState('');
+  const [loadingQb, setLoadingQb] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setLoadingQb(true);
+      getQbittorrentVersions().then(list => {
+        setQbVersions(list);
+        setLoadingQb(false);
+      }).catch(() => setLoadingQb(false));
+    }
+  }, [open]);
+
+  const handleGenerateQbClient = async () => {
+    setLoadingQb(true);
+    try {
+      await generateQbittorrentClient(selectedQbVersion);
+      alert('Fichier client généré et téléchargé !');
+    } catch (e) {
+      alert('Erreur génération client : ' + e.message);
+    }
+    setLoadingQb(false);
+  };
   // configSaveStatus: { saving: bool, error: string|null, success: bool }
   // Indique si la sauvegarde est en cours
   const [saving, setSaving] = useState(false);
@@ -96,9 +121,33 @@ export default function ConfigModal({ open, onClose, clientWebSocket, clients, c
 
   // Affichage du formulaire de configuration dans une popup Material UI
   return (
-    <Dialog open={open} onClose={saving ? undefined : onClose} maxWidth="sm" fullWidth>
+  <Dialog open={open} onClose={saving ? undefined : onClose} maxWidth="md" fullWidth>
       <DialogTitle>Paramètres JOAL</DialogTitle>
       <DialogContent>
+        {/* Générateur automatique de client qBittorrent */}
+        <Box sx={{ mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+          <strong>Générer un client qBittorrent officiel :</strong><br />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
+            <TextField
+              select
+              label="Version qBittorrent"
+              value={selectedQbVersion}
+              onChange={e => setSelectedQbVersion(e.target.value)}
+              disabled={loadingQb || qbVersions.length === 0}
+              sx={{ minWidth: 220 }}
+            >
+              <MenuItem value="">Dernière version stable</MenuItem>
+              {qbVersions.map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
+            </TextField>
+            <Button variant="outlined" onClick={handleGenerateQbClient} disabled={loadingQb || qbVersions.length === 0}>
+              Générer & Télécharger
+            </Button>
+          </Box>
+          <Box sx={{ fontSize: 13, color: '#666', mt: 1 }}>
+            Sélectionnez une version officielle de qBittorrent et générez automatiquement le fichier client compatible JOAL.<br />
+            Le fichier sera téléchargé et ajouté dans le dossier <code>clients/</code>.
+          </Box>
+        </Box>
         <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           {/* Champ pour la vitesse d'upload minimale */}
           <TextField

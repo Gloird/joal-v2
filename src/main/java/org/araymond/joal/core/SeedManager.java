@@ -1,3 +1,4 @@
+
 package org.araymond.joal.core;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -51,14 +52,49 @@ import static org.apache.commons.lang3.ObjectUtils.firstNonNull;
 import static org.springframework.http.HttpHeaders.USER_AGENT;
 
 /**
- * This is the outer boundary of our the business logic. Most (if not all)
- * torrent-related handling is happening here & downstream.
+ * <h1>SeedManager</h1>
+ * <p>
+ * Classe principale qui orchestre toute la logique métier de l'application JOAL côté backend.<br>
+ * Elle centralise la gestion des torrents, l'anti Hit&Run, la persistance du temps seedé, la configuration, la gestion des clients BitTorrent émulés, la bande passante simulée, et la communication d'événements avec le reste de l'application.<br>
+ * <br>
+ * <b>Rôle :</b><br>
+ * - Initialiser et gérer tous les services nécessaires au fonctionnement de JOAL.<br>
+ * - Surveiller dynamiquement l'ajout/suppression de fichiers .torrent.<br>
+ * - Instancier et piloter un service anti Hit&Run par torrent (contrôle du temps seedé, archivage automatique, etc).<br>
+ * - Persister le temps seedé pour chaque torrent afin d'assurer la reprise après redémarrage.<br>
+ * - Gérer la configuration, la bande passante, les clients émulés, et publier les événements Spring.<br>
+ * <br>
+ * <b>Principales responsabilités :</b><br>
+ * <ul>
+ *   <li>Initialisation et arrêt propre de tous les services (connexion, watcher, client, etc).</li>
+ *   <li>Gestion dynamique des torrents (ajout/suppression, archivage automatique, etc).</li>
+ *   <li>Gestion de l'anti Hit&Run (un service par torrent, suivi du temps seedé, archivage automatique, etc).</li>
+ *   <li>Persistance du temps seedé (pour chaque infoHash) via ElapsedTimePersistenceService.</li>
+ *   <li>Gestion de la configuration et des clients BitTorrent émulés.</li>
+ *   <li>Publication d'événements Spring pour synchroniser l'état avec le front et les autres services.</li>
+ * </ul>
+ * <br>
+ * <b>Règle n°1 de maintenance :</b> <br>
+ * Toute modification de la logique métier doit être accompagnée de commentaires détaillés et de JavaDoc explicite, pour garantir la compréhension et la maintenabilité du code par n'importe quel développeur francophone.<br>
+ * <br>
+ * <b>Exemple d'utilisation :</b><br>
+ * <pre>
+ *   SeedManager manager = new SeedManager("/chemin/vers/conf", objectMapper, eventPublisher);
+ *   manager.init();
+ *   manager.startSeeding();
+ *   // ...
+ *   manager.stop();
+ * </pre>
+ *
+ * @author Gloird
+ * @version 2.0
+ * @since 2023
  */
 
-// Classe principale qui gère la logique métier de l'application JOAL.
-// Elle orchestre la gestion des torrents, l'anti Hit&Run, la persistance du temps seedé, la configuration, etc.
+import org.araymond.joal.core.torrent.watcher.TorrentFileChangeAware;
+
 @Slf4j
-public class SeedManager {
+public class SeedManager implements TorrentFileChangeAware {
 
 
     // Client HTTP utilisé pour les communications réseau (announces trackers, etc.)
@@ -95,8 +131,19 @@ public class SeedManager {
      * @param mapper           ObjectMapper Jackson pour la sérialisation JSON
      * @param appEventPublisher Publisher Spring pour les événements
      */
+    /**
+     * Constructeur principal du SeedManager.
+     * Initialise tous les services nécessaires à la gestion des torrents, de la configuration,
+     * de la persistance, de la bande passante et de l'anti Hit&Run.
+     *
+     * @param joalConfRootPath Chemin racine du dossier de configuration JOAL
+     * @param mapper           ObjectMapper Jackson pour la sérialisation JSON
+     * @param appEventPublisher Publisher Spring pour les événements
+     * @throws IOException si un dossier ou fichier nécessaire est manquant ou inaccessible
+     */
     public SeedManager(final String joalConfRootPath, final ObjectMapper mapper,
                        final ApplicationEventPublisher appEventPublisher) throws IOException {
+        // Initialisation des chemins de configuration et des services principaux
         this.joalFoldersPath = new JoalFoldersPath(Paths.get(joalConfRootPath));
         this.torrentFileProvider = new TorrentFileProvider(joalFoldersPath);
         this.configProvider = new JoalConfigProvider(mapper, joalFoldersPath, appEventPublisher);
@@ -104,9 +151,10 @@ public class SeedManager {
         this.appEventPublisher = appEventPublisher;
         this.elapsedTimePersistenceService = new ElapsedTimePersistenceService(mapper, joalFoldersPath.getConfDirRootPath());
 
-    final SocketConfig sc = SocketConfig.custom()
-        .setSoTimeout(30_000)
-        .build();
+        // Configuration du client HTTP pour les communications trackers
+        final SocketConfig sc = SocketConfig.custom()
+            .setSoTimeout(30_000)
+            .build();
         final PoolingHttpClientConnectionManager connManager = new PoolingHttpClientConnectionManager();
         connManager.setDefaultMaxPerRoute(100);
         connManager.setMaxTotal(200);
@@ -115,7 +163,7 @@ public class SeedManager {
 
         RequestConfig requestConf = RequestConfig.custom()
                 .setConnectTimeout(10_000)
-                .setConnectionRequestTimeout(5000)  // timeout for requesting connection from connection manager
+                .setConnectionRequestTimeout(5000)  // timeout pour obtenir une connexion du pool
                 .setSocketTimeout(5000)
                 .build();
 
@@ -125,22 +173,93 @@ public class SeedManager {
                 .setConnectionManagerShared(true)
                 .setDefaultRequestConfig(requestConf)
                 .build();
+        // S'enregistrer comme listener pour détecter les ajouts dynamiques de torrents
+        this.torrentFileProvider.registerListener(this);
+    }
+
+    /**
+     * Retourne le publisher d'événements Spring utilisé par le SeedManager.
+     * @return
+     */
+    public ApplicationEventPublisher getAppEventPublisher() {
+        return this.appEventPublisher;
+    }
+
+
+    /**
+     * Appelé lorsqu'un nouveau fichier .torrent est ajouté dynamiquement.
+     * Initialise le service anti Hit&Run pour ce torrent.
+     */
+    /**
+     * Méthode appelée automatiquement lorsqu'un nouveau fichier .torrent est ajouté dynamiquement.
+     * Initialise le service anti Hit&Run pour ce torrent, restaure le temps seedé si existant,
+     * et démarre le suivi anti H&R pour ce torrent.
+     *
+     * @param torrent Le torrent nouvellement ajouté
+     */
+    @Override
+    public void onTorrentFileAdded(MockedTorrent torrent) {
+        String infoHash = torrent.getTorrentInfoHash().getHumanReadable();
+        // Si le service anti H&R n'existe pas déjà pour ce torrent, on l'initialise
+        if (!antiHnRServices.containsKey(infoHash)) {
+            AppConfiguration appConfig = this.getCurrentConfig();
+            AntiHitAndRunService service = new AntiHitAndRunService(
+                appConfig.getRequiredSeedingTimeMs(),
+                appConfig.getMaxNonSeedingTimeMs()
+            );
+            // Charger le temps seedé depuis la persistance
+            long persistedElapsed = elapsedTimePersistenceService.get(infoHash);
+            if (persistedElapsed > 0) {
+                service.setTotalSeedingTime(persistedElapsed);
+            }
+            antiHnRServices.put(infoHash, service);
+            service.onSeedingStart();
+            // Sauvegarde immédiate à l'initialisation (utile si nouveau torrent)
+            elapsedTimePersistenceService.save(infoHash, persistedElapsed);
+        }
+    }
+
+    /**
+     * Méthode appelée automatiquement lorsqu'un fichier .torrent est supprimé dynamiquement.
+     * Supprime le service anti Hit&Run associé à ce torrent.
+     *
+     * @param torrent Le torrent supprimé
+     */
+    @Override
+    public void onTorrentFileRemoved(MockedTorrent torrent) {
+        String infoHash = torrent.getTorrentInfoHash().getHumanReadable();
+        antiHnRServices.remove(infoHash);
     }
 
     /**
      * Initialise les gestionnaires de connexion et de fichiers torrents.
      */
+    /**
+     * Initialise les gestionnaires de connexion et de fichiers torrents.
+     * À appeler au démarrage de l'application pour activer la surveillance des torrents et la gestion réseau.
+     *
+     * @throws IOException si un problème survient lors de l'initialisation
+     */
     public void init() throws IOException {
+        // Démarre la gestion des connexions réseau (port, IP, etc.)
         this.connectionHandler.start();
+        // Démarre la surveillance des fichiers .torrent (ajout/suppression)
         this.torrentFileProvider.start();
     }
 
     /**
      * Arrête proprement tous les services et threads.
      */
+    /**
+     * Arrête proprement tous les services et threads du SeedManager.
+     * À appeler lors de l'arrêt de l'application pour libérer toutes les ressources.
+     */
     public void tearDown() {
+        // Arrête la gestion réseau
         this.connectionHandler.close();
+        // Arrête la surveillance des fichiers torrents
         this.torrentFileProvider.stop();
+        // Arrête le client principal si actif
         if (this.client != null) {
             this.client.stop();
             this.client = null;

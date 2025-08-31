@@ -19,14 +19,19 @@ function formatDuration(ms) {
   return out;
 }
 
-// Formate une date/heure en chaîne locale
-function formatDateTime(dt) {
-  if (!dt) return '-';
-  try {
-    return new Date(dt).toLocaleString();
-  } catch {
-    return dt;
+function unFormatDuration(str) {
+  let total = 0;
+  const regex = /(\d+)([dhms])/g;
+  let match;
+  while ((match = regex.exec(str)) !== null) {
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+    if (unit === 'd') total += value * 86400000;
+    else if (unit === 'h') total += value * 3600000;
+    else if (unit === 'm') total += value * 60000;
+    else if (unit === 's') total += value * 1000;
   }
+  return total;
 }
 
 /**
@@ -73,9 +78,10 @@ export default function TorrentsTable({ torrents, speeds, globalInfo, config, cl
         if (typeof row.torrentSize === 'number') return (row.torrentSize / 1024 / 1024 / 1024).toFixed(2) + ' Go';
         return '-';
       }
+      , sortComparator: (v1, v2) => parseFloat(v1) - parseFloat(v2) 
     },
-    { field: 'lastKnownSeeders', headerName: 'Seeders', minWidth: 90, valueGetter: p => p || '-' },
-    { field: 'lastKnownLeechers', headerName: 'Leechers', minWidth: 90, valueGetter: p => p || '-' },
+    { field: 'lastKnownSeeders', headerName: 'Seeders', minWidth: 90, valueGetter: p => p || '-' , sortComparator: (v1, v2) => (v1 === '-' ? 0 : parseInt(v1)) - (v2 === '-' ? 0 : parseInt(v2)) },
+    { field: 'lastKnownLeechers', headerName: 'Leechers', minWidth: 90, valueGetter: p => p || '-', sortComparator: (v1, v2) => (v1 === '-' ? 0 : parseInt(v1)) - (v2 === '-' ? 0 : parseInt(v2)) },
     {
       field: 'bytesPerSecond', headerName: 'Vitesse Upload (Mbit/s)', minWidth: 140, valueGetter: p => {
         if (typeof p === 'number') {
@@ -84,10 +90,13 @@ export default function TorrentsTable({ torrents, speeds, globalInfo, config, cl
         }
         return '-';
       }
+      , sortComparator: (v1, v2) => parseFloat(v1) - parseFloat(v2) 
     },
-    { field: 'antiHnRElapsedMs', headerName: 'Temps seedé', minWidth: 120, valueGetter: p => formatDuration(p) || '-' },
+    { field: 'antiHnRElapsedMs', headerName: 'Temps seedé', minWidth: 120, valueGetter: p => formatDuration(p) || '-' 
+      , sortComparator: (v1, v2) => unFormatDuration(v1) - unFormatDuration(v2) },
     // Statut du torrent (OK ou Erreur)
-    { field: 'statut', headerName: 'Statut', minWidth: 90, renderCell: p => p > 0 ? <span style={{ color: 'red' }}>Erreur</span> : <span style={{ color: 'green' }}>OK</span> },
+    { field: 'requestEvent', headerName: 'Statut', minWidth: 90, valueGetter: p => p === 'STARTED' ? 'Actif' : p === 'STOPPED' ? 'Arrêté' : p === 'COMPLETED' ? 'Terminé' : p || '-', 
+      cellClassName: p =>  p.row.requestEvent === 'STARTED' ? 'status-active' : p.row.requestEvent === 'STOPPED' ? 'status-stopped' : p.row.requestEvent === 'COMPLETED' ? 'status-completed' : 'status-unknown'}
   ];
 
   // Affichage du tableau des torrents

@@ -54,3 +54,25 @@ body{
 .row-error {
   background-color: #ffeaea !important;
 }
+
+/* Styles pour les statuts des torrents */
+.status-active {
+  color: green;
+  font-weight: bold;
+}
+
+.status-stopped {
+  color: orange;
+  font-weight: bold;
+}
+
+.status-completed {
+  color: blue;
+  font-weight: bold;
+}
+
+.status-unknown {
+  color: grey;
+  font-weight: bold;
+}
+

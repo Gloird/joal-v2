@@ -96,23 +96,27 @@ function App() {
     setClientWebSocket(connectWebSocket({
       onGlobal: (global) => {
         // Réception des infos globales
-        console.log('Received global info:', global);
+        console.debug('Received global info:', global);
         setGlobalInfo(global);
       },
       onConfig: (conf) => {
         // Réception de la configuration ou erreur
-        console.log('Received config:', conf);
+        console.debug('Received config:', conf);
         // Gestion des erreurs INVALID_CONFIG
         if (conf && conf.type === 'INVALID_CONFIG' && conf.payload && conf.payload.error) {
           setSnackbar({ open: true, message: 'Erreur config : ' + conf.payload.error });
           setConfigSaveStatus({ saving: false, error: conf.payload.error, success: false });
           return;
         }
+        
+        if (conf.type === 'LIST_OF_CLIENT_FILES' && conf.payload) {
+          setClients(ev.payload.clients);
+        }
         // Peut être {type, payload: {config: ...}} ou juste {config: ...}
         let newConf = conf;
         if (conf && conf.config) newConf = conf.config;
         if (conf && conf.payload && conf.payload.config) newConf = conf.payload.config;
-        console.log('Received config:', newConf);
+        console.debug('Received config:', newConf);
         setConfig(newConf);
         // Succès : on ferme la popup
         setConfigSaveStatus({ saving: false, error: null, success: true });
@@ -120,7 +124,7 @@ function App() {
       },
       onSpeed: (speedsArr) => {
         // Réception des vitesses d'upload
-        console.log('Received speeds:', speedsArr);
+        console.debug('Received speeds:', speedsArr);
         const speedMap = {};
         setTorrents(prevTorrents => mergeSeedingSpeedHasChanged(prevTorrents, speedsArr));
         if (Array.isArray(speedsArr)) {
@@ -130,7 +134,7 @@ function App() {
       },
       onTorrent: (payload) => {
         // Réception d'une mise à jour torrent
-        console.log('Received torrent update:', payload);
+        console.debug('Received torrent update:', payload);
         setTorrents(prev => {
           let next = mergeTorrentFileAdded(prev, payload);
           next = mergeSuccessfullyAnnounce(next, payload);
@@ -140,7 +144,7 @@ function App() {
       },
       onInit: (events) => {
         // Initialisation : fusionne tous les événements reçus
-        console.log('Received init events:', events);
+        console.debug('Received init events:', events);
         let torrentsList = [];
         let speedMap = {};
         let global = {};
@@ -164,7 +168,16 @@ function App() {
             });
           }
           if (ev.type === 'GLOBAL_SEED_STARTED' && ev.payload) {
-            global = { ...global, client: ev.payload.client };
+            global = { ...global, client: ev.payload.client, isStarted: true, isFetching  : false};
+          }
+          if (ev.type === 'GLOBAL_SEED_STOPPED' && ev.payload) {
+            global = { ...global, client: ev.payload.client, isStarted: false , isFetching  : false};
+          }
+          if (ev.type === 'SEND_START_TO_SERVER' && ev.payload) {
+            global = { ...global,isFetching  : true};
+          }
+          if (ev.type === 'SEND_STOP_TO_SERVER' && ev.payload) {
+            global = { ...global,isFetching  : true};
           }
           if (ev.type === 'CONFIG_HAS_BEEN_LOADED' && ev.payload) {
             conf = ev.payload.config;
@@ -221,7 +234,7 @@ function App() {
         <Toolbar />
         <Container maxWidth="lg" sx={{ mt: 4 }}>
           {/* Affichage des infos globales et de la config */}
-          <InfoPrincipal globalInfo={globalInfo} config={config} clients={clients} />
+          <InfoPrincipal globalInfo={globalInfo} config={config} clients={clients} torrents={torrents} clientWebSocket={clientWebSocket} />
           {/* Tableau des torrents */}
           <TorrentsTable onSnackbar={handleSnackbar} torrents={torrents} speeds={speeds} globalInfo={globalInfo} config={config} clients={clients} />
         </Container>

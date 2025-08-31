@@ -33,7 +33,7 @@ public abstract class KeyGenerator {
     @JsonProperty("keyCase")
     private final Casing keyCase;
 
-    protected KeyGenerator(final KeyAlgorithm keyAlgorithm, final Casing keyCase) {
+    public KeyGenerator(final KeyAlgorithm keyAlgorithm, final Casing keyCase) {
         if (keyAlgorithm == null) {
             throw new TorrentClientConfigIntegrityException("key algorithm must not be null");
         }

@@ -1,3 +1,18 @@
+// Récupère la liste des versions qBittorrent disponibles
+export const getQbittorrentVersions = async () => {
+  const res = await fetch('/api/client-generator/qbittorrent/versions');
+  return await res.json();
+};
+
+// Génère un fichier client qBittorrent pour la version choisie
+export const generateQbittorrentClient = async (version) => {
+  const res = await fetch('/api/client-generator/qbittorrent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ version })
+  });
+  if (!res.ok) throw new Error('Erreur génération client');
+};
 
 import { Client } from '@stomp/stompjs';
 // API utilitaires pour REST et WebSocket
@@ -24,6 +39,7 @@ export const updateConfig = async (config) => {
   });
 };
 
+
 let client;
 let onSpeedUpdate = () => {};
 let onTorrentUpdate = () => {};
@@ -39,8 +55,7 @@ export function connectWebSocket({ onSpeed, onTorrent, onInit, onGlobal, onConfi
   onConfigUpdate = onConfig;
 
   //console.log(import.meta.env.VITE_WS_PATH, import.meta.env.VITE_WS_HOST);
-  const WS_PATH = window.location.pathname;
-  const WS_HOST = window.location.host;
+  const WS_HOST = import.meta.env.DEV ? import.meta.env.VITE_WS_HOST : window.location.host;
   const WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + WS_HOST +'/ws';
 
     // Récupère le token depuis la config ou l'environnement
@@ -50,7 +65,7 @@ export function connectWebSocket({ onSpeed, onTorrent, onInit, onGlobal, onConfi
     client = new Client({
       brokerURL: WS_URL,
       reconnectDelay: 5000,
-      debug: str => console.log(str),
+      debug: str => console.debug(str),
       connectHeaders: {
         'X-Joal-Auth-Token': secretToken,
         'X-Joal-Username': username

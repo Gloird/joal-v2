@@ -32,7 +32,7 @@ public abstract class PeerIdGenerator {
     @JsonProperty("shouldUrlEncode")
     private final boolean shouldUrlEncode;
 
-    protected PeerIdGenerator(final PeerIdAlgorithm algorithm, final boolean shouldUrlEncode) {
+    public PeerIdGenerator(final PeerIdAlgorithm algorithm, final boolean shouldUrlEncode) {
         if (algorithm == null) {
             throw new TorrentClientConfigIntegrityException("peerId algorithm must not be null");
         }
