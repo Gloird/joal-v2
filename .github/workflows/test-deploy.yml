@@ -56,23 +56,17 @@ jobs:
         VERSION=latest
         SHORTREF=${GITHUB_SHA::8}
 
-        # If this is git tag, use the tag name as a docker tag
+
+        # Si c'est un tag git, on utilise le tag comme version et on ajoute toujours 'latest'
         if [[ $GITHUB_REF == refs/tags/* ]]; then
           VERSION=${GITHUB_REF#refs/tags/}
+          TAGS="${DOCKER_IMAGE}:${VERSION},${DOCKER_IMAGE}:latest"
         else
           VERSION=${SHORTREF}
-        fi
-        TAGS="${DOCKER_IMAGE}:${VERSION}"
-
-        # If the VERSION looks like a version number, assume that
-        # this is the most recent version of the image and also
-        # tag it 'latest'.
-        if [[ $VERSION =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-          TAGS="$TAGS,${DOCKER_IMAGE}:latest"
+          TAGS="${DOCKER_IMAGE}:${VERSION}"
         fi
 
         # Set output parameters.
-        # Correction : suppression du slash initial si présent
         TAGS="${TAGS#/}"
         echo ::set-output name=tags::${TAGS}
         echo ::set-output name=docker_image::${DOCKER_IMAGE}
