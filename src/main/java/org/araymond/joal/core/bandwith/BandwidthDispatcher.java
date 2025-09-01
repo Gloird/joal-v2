@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.araymond.joal.core.bandwith.weight.PeersAwareWeightCalculator;
 import org.araymond.joal.core.bandwith.weight.WeightHolder;
 import org.araymond.joal.core.torrent.torrent.InfoHash;
-import org.araymond.joal.core.ttorrent.client.announcer.response.BandwidthDispatcherNotifier;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -126,7 +125,6 @@ public class BandwidthDispatcher implements BandwidthDispatcherFacade, Runnable 
                             .orElse(0L);
                     // Divide by 1000 because of the thread pause interval being in milliseconds
                     // The multiplication HAS to be done before the division, otherwise we're going to have trailing zeroes
-                    // TODO: maybe instead of trusting threadPauseIntervalMs, use wall clock for calculations?
                     entry.getValue().addUploaded(speedInBytesPerSecond * this.threadPauseIntervalMs / 1000);
                 });
             }
@@ -206,7 +204,7 @@ public class BandwidthDispatcher implements BandwidthDispatcherFacade, Runnable 
     void recomputeSpeeds() {
         log.debug("Refreshing all torrents speeds");
         this.torrentsSeedStats.keySet().forEach(infohash -> this.speedMap.compute(infohash, (hash, speed) -> {
-            if (speed == null) {  // TODO: could it ever be null? both maps are updated under same lock anyway
+            if (speed == null) {  
                 return new Speed(0);
             }
             double percentOfSpeedAssigned = this.weightHolder.getTotalWeight() == 0.0

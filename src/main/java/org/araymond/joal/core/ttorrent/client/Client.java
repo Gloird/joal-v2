@@ -214,17 +214,18 @@ public class Client implements TorrentFileChangeAware, ClientFacade {
             this.currentlySeedingAnnouncers.remove(announcer);
             return;
         }
-
-        Lock lock = this.lock.writeLock();
-        try {
-            lock.lock();
-            this.currentlySeedingAnnouncers.remove(announcer);  // Remove from announcers list asap, otherwise the deletion will trigger an announce stop event.
-            this.torrentFileProvider.moveToArchiveFolder(announcer.getTorrentInfoHash());
-            this.addTorrentFromDirectory();
-        } catch (final NoMoreTorrentsFileAvailableException ignored) {
-        } finally {
-            lock.unlock();
-        }
+        // Désactivation temporaire de l'archivage automatique en cas d'erreurs multiples
+        log.info("Trop d’annonces d’échecs d’affilée pour le torrent [{}]. Actuellement, il n’est pas archivé en raison de la désactivation temporaire de cette fonctionnalité.", announcer.getTorrentInfoHash());
+        //Lock lock = this.lock.writeLock();
+        //try {
+        //    lock.lock();
+        //    this.currentlySeedingAnnouncers.remove(announcer);  // Remove from announcers list asap, otherwise the deletion will trigger an announce stop event.
+        //    this.torrentFileProvider.moveToArchiveFolder(announcer.getTorrentInfoHash());
+        //    this.addTorrentFromDirectory();
+        //} catch (final NoMoreTorrentsFileAvailableException ignored) {
+        //} finally {
+        //    lock.unlock();
+        //}
     }
 
     /**

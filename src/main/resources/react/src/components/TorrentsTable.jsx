@@ -2,7 +2,8 @@
 // Utilise Material UI et DataGrid pour une présentation moderne et interactive.
 // Optimisation possible : gestion des erreurs et actions sur les torrents (stop, remove, etc.)
 import React, { useEffect, useState, useRef } from 'react';
-import { Card, CardContent, Typography, Box, Select, MenuItem, Grid, Paper } from '@mui/material';
+import { Card, CardContent, Typography, Box, Select, MenuItem, Grid, Paper, IconButton, Tooltip } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { DataGrid } from '@mui/x-data-grid';
 
 // Formate une durée en millisecondes en chaîne lisible (ex: 1j 2h 3m 4s)
@@ -42,7 +43,15 @@ function unFormatDuration(str) {
  * @param config Configuration courante
  * @param clients Liste des clients BitTorrent disponibles
  */
-export default function TorrentsTable({ torrents, speeds, globalInfo, config, clients }) {
+export default function TorrentsTable({ torrents, speeds, globalInfo, config, clients, clientWebSocket }) {
+  // Suppression d'un torrent via WebSocket
+  const handleDeleteTorrent = (infoHash) => {
+    if (!clientWebSocket) return;
+    clientWebSocket.publish({
+      destination: '/torrents/delete',
+      body: infoHash
+    });
+  };
   // Animation du temps seedé (incrémente antiHnRElapsedMs toutes les secondes)
   const [now, setNow] = useState(Date.now());
   const intervalRef = useRef();
@@ -68,6 +77,10 @@ export default function TorrentsTable({ torrents, speeds, globalInfo, config, cl
   // Définition des colonnes pour le tableau DataGrid
   const columns = [
     { field: 'torrentName', headerName: 'Nom', flex: 1, minWidth: 150 },
+    { field: 'trackerUrl', headerName: 'Tracker', minWidth: 220, 
+      valueGetter: p => p ? new URL(p)?.hostname : '-' , 
+      sortComparator: (v1, v2) => (v1 === '-' ? '' : v1).localeCompare(v2 === '-' ? '' : v2) 
+    },
     {
       field: 'size',
       headerName: 'Taille',
@@ -96,7 +109,21 @@ export default function TorrentsTable({ torrents, speeds, globalInfo, config, cl
       , sortComparator: (v1, v2) => unFormatDuration(v1) - unFormatDuration(v2) },
     // Statut du torrent (OK ou Erreur)
     { field: 'requestEvent', headerName: 'Statut', minWidth: 90, valueGetter: p => p === 'STARTED' ? 'Actif' : p === 'STOPPED' ? 'Arrêté' : p === 'COMPLETED' ? 'Terminé' : p || '-', 
-      cellClassName: p =>  p.row.requestEvent === 'STARTED' ? 'status-active' : p.row.requestEvent === 'STOPPED' ? 'status-stopped' : p.row.requestEvent === 'COMPLETED' ? 'status-completed' : 'status-unknown'}
+      cellClassName: p =>  p.row.requestEvent === 'STARTED' ? 'status-active' : p.row.requestEvent === 'STOPPED' ? 'status-stopped' : p.row.requestEvent === 'COMPLETED' ? 'status-completed' : 'status-unknown'},
+    {
+      field: 'actions',
+      headerName: '',
+      minWidth: 20,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => (
+        <Tooltip title="Supprimer le torrent">
+          <IconButton color="error" size="small" onClick={() => handleDeleteTorrent(params.row.infoHash)}>
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )
+    }
   ];
 
   // Affichage du tableau des torrents

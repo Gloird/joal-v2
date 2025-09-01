@@ -51,6 +51,24 @@ public class MockedTorrent extends Torrent {
         this.torrentInfoHash = new InfoHash(this.getInfoHash());
     }
 
+    /**
+     * Retourne l'URL du tracker principal (announce) de ce torrent, ou null si absent.
+     */
+    public String getPrimaryTrackerUrl() {
+        try {
+            // getAnnounceList() retourne List<List<URI>>
+            if (this.getAnnounceList() != null && !this.getAnnounceList().isEmpty()) {
+                final java.util.List<java.net.URI> tier = this.getAnnounceList().get(0);
+                if (tier != null && !tier.isEmpty()) {
+                    return tier.get(0).toString();
+                }
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return null;
+    }
+
     public static MockedTorrent fromFile(final File torrentFile) throws IOException, NoSuchAlgorithmException {
         final byte[] data = FileUtils.readFileToByteArray(torrentFile);
         return new MockedTorrent(data);
